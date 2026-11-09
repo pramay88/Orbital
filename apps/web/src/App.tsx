@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
 import "./App.css";
+import MetricChart from "./components/MetricChart";
+import type { MetricsSnapshot } from "./types/system";
+
 
 interface HealthResponse {
   status: string;
@@ -63,20 +66,42 @@ interface SystemOverview {
 }
 
 function formatBytes(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes < 0) return "--";
   if (bytes === 0) return "0 B";
 
   const units = ["B", "KB", "MB", "GB", "TB"];
-  const index = Math.floor(Math.log(bytes) / Math.log(1024));
+  const index = Math.min(
+    Math.floor(Math.log(bytes) / Math.log(1024)),
+    units.length - 1
+  );
 
-  return `${(bytes / Math.pow(1024, index)).toFixed(2)} ${units[index]}`;
+  return `${(bytes / 1024 ** index).toFixed(2)} ${units[index]}`;
 }
 
+function formatMbps(bytesPerSecond: number): string {
+  if (!Number.isFinite(bytesPerSecond) || bytesPerSecond < 0) {
+    return "--";
+  }
+
+  return ((bytesPerSecond * 8) / 1_000_000).toFixed(2);
+}
+
+function formatUptime(seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds < 0) return "--";
+
+  const days = Math.floor(seconds / 86400);
+  const hours = Math.floor((seconds % 86400) / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+
+  return `${days}d ${hours}h ${minutes}m`;
+}
 
 function App() {
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [error, setError] = useState(false);
   const [system, setSystem] = useState<SystemOverview | null>(null);
   const [systemError, setSystemError] = useState(false);
+  const [history, setHistory] = useState<MetricsSnapshot[]>([]);
 
   useEffect(() => {
     let active = true;
@@ -113,7 +138,6 @@ function App() {
     };
   }, []);
 
-
   useEffect(() => {
     let active = true;
 
@@ -149,11 +173,99 @@ function App() {
   }, []);
 
 
-  const uptime = health
-    ? `${Math.floor(health.uptime / 3600)}h ${Math.floor(
-      (health.uptime % 3600) / 60
-    )}m`
-    : "--";
+  const [historyLoading, setHistoryLoading] = useState(true);
+  const [historyError, setHistoryError] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    let timer: ReturnType<typeof setTimeout>;
+
+    async function pollMetrics() {
+      if (!active) return;
+
+      try {
+        const response = await fetch("/api/system/metrics");
+
+        if (!response.ok) {
+          throw new Error("Metrics unavailable");
+        }
+
+        const result = await response.json();
+
+        if (!result.success || !result.data) {
+          throw new Error("Invalid metrics response");
+        }
+
+        const snapshot: MetricsSnapshot = result.data;
+
+        if (active) {
+          setHistory((previous) => {
+            // Avoid adding duplicate snapshots.
+            if (
+              previous.length > 0 &&
+              previous[previous.length - 1].timestamp ===
+              snapshot.timestamp
+            ) {
+              return previous;
+            }
+
+            return [...previous, snapshot].slice(-150);
+          });
+
+          setHistoryError(false);
+        }
+      } catch (error) {
+        console.error("Metrics polling failed:", error);
+
+        if (active) {
+          setHistoryError(true);
+        }
+      } finally {
+        if (active) {
+          timer = setTimeout(pollMetrics, 2000);
+        }
+      }
+    }
+
+    async function initializeHistory() {
+      try {
+        const response = await fetch("/api/system/history");
+
+        if (!response.ok) {
+          throw new Error("History unavailable");
+        }
+
+        const result = await response.json();
+
+        if (!result.success || !Array.isArray(result.data)) {
+          throw new Error("Invalid history response");
+        }
+
+        if (active) {
+          setHistory(result.data.slice(-150));
+          setHistoryError(false);
+        }
+      } catch (error) {
+        console.error("Initial history loading failed:", error);
+
+        if (active) {
+          setHistoryError(true);
+        }
+      } finally {
+        if (active) {
+          setHistoryLoading(false);
+          void pollMetrics();
+        }
+      }
+    }
+
+    void initializeHistory();
+
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, []);
 
   return (
     <main className="dashboard">
@@ -211,7 +323,7 @@ function App() {
         <h3>System overview</h3>
 
 
-        <section className="stats-grid">
+        <section className="charts-grid">
           <StatCard
             label="Server status"
             value={health ? "Online" : "Offline"}
@@ -257,10 +369,91 @@ function App() {
           />
         </section>
 
+        <h3>Performance history</h3>
+
+        {historyLoading ? (
+          <div className="empty-state">
+            Loading metrics history...
+          </div>
+        ) : historyError ? (
+          <div className="error-state">
+            Unable to load metrics history.
+          </div>
+        ) : history.length === 0 ? (
+          <div className="empty-state">
+            Waiting for metrics data...
+          </div>
+        ) : (
+          <section className="charts-grid">
+            <MetricChart
+              title="CPU utilization"
+              data={history.map((item) => ({
+                timestamp: item.timestamp,
+                value: item.cpu.usagePercent,
+              }))}
+            />
+
+            <MetricChart
+              title="Memory utilization"
+              data={history.map((item) => ({
+                timestamp: item.timestamp,
+                value: item.memory.usagePercent,
+              }))}
+            />
+          </section>
+        )}
+
+
+        <h3>Network throughput</h3>
+
+        <section className="services-grid">
+          {(() => {
+            const latest = history[history.length - 1];
+
+            const interfaces = (latest?.network ?? []).filter(
+              (network) =>
+                network.interface &&
+                !/^(lo|loopback)$/i.test(network.interface) &&
+                Number.isFinite(network.rxBytesPerSecond) &&
+                Number.isFinite(network.txBytesPerSecond) &&
+                network.rxBytesPerSecond >= 0 &&
+                network.txBytesPerSecond >= 0
+            );
+
+            if (interfaces.length === 0) {
+              return (
+                <article className="service-card">
+                  <h4>No network metrics available</h4>
+                  <p>Waiting for interface statistics...</p>
+                </article>
+              );
+            }
+
+            return interfaces.map((network) => (
+              <article className="service-card" key={network.interface}>
+                <div className="service-icon">⌘</div>
+
+                <h4>{network.interface}</h4>
+
+                <p>
+                  ↓ Download: {formatMbps(network.rxBytesPerSecond)} Mbps
+                </p>
+
+                <p>
+                  ↑ Upload: {formatMbps(network.txBytesPerSecond)} Mbps
+                </p>
+
+                <small>Live interface throughput</small>
+              </article>
+            ));
+          })()}
+        </section>
+
+
 
         <h3>Hardware & environment</h3>
 
-        <section className="stats-grid">
+        <section className="charts-grid">
           <StatCard
             label="Processor"
             value={system?.cpu.brand ?? "--"}
@@ -282,13 +475,13 @@ function App() {
           />
 
           <StatCard
-            label="System uptime"
+            label="Host uptime"
             value={
               system
-                ? `${Math.floor(system.uptime.systemSeconds / 86400)}d ${Math.floor((system.uptime.systemSeconds % 86400) / 3600)}h`
+                ? formatUptime(system.uptime.systemSeconds)
                 : "--"
             }
-            detail="Host operating system"
+            detail="Time since operating system started"
           />
 
           <StatCard

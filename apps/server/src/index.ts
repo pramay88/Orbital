@@ -1,6 +1,7 @@
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { systemRoutes } from "./modules/system/system.routes.js";
+import { startMetricsCollector } from "./modules/system/metrics.store.js";
 
 const app = new Hono();
 
@@ -46,5 +47,6 @@ serve(
   API:     http://localhost:${info.port}/api/health
   -----------------------------
     `);
+        startMetricsCollector();
     }
 );
