@@ -3,6 +3,7 @@ import { Hono } from "hono";
 import { systemRoutes } from "./modules/system/system.routes.js";
 import { startMetricsCollector } from "./modules/system/metrics.store.js";
 import { initializeStorage } from "./modules/filesystem/filesystem.service.js";
+import { filesystemRoutes } from "./modules/filesystem/filesystem.routes.js";
 
 const app = new Hono();
 
@@ -10,6 +11,7 @@ const PORT = Number(process.env.PORT ?? 3001);
 const HOST = process.env.HOST ?? "127.0.0.1";
 
 app.route("/api/system", systemRoutes);
+app.route("/api/files", filesystemRoutes);
 
 // Root endpoint
 app.get("/", (c) => {

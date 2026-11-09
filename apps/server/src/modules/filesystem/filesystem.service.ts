@@ -6,6 +6,7 @@ import {
 } from "node:fs/promises";
 
 import path from "node:path";
+import type { ContentfulStatusCode } from "hono/utils/http-status";
 
 import type {
     DirectoryListing,
@@ -23,7 +24,7 @@ let resolvedRoot: string | null = null;
 export class FilesystemError extends Error {
     constructor(
         message: string,
-        public readonly statusCode: number,
+        public readonly statusCode: ContentfulStatusCode,
     ) {
         super(message);
         this.name = "FilesystemError";
