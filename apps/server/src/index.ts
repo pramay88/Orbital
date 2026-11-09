@@ -2,6 +2,7 @@ import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { systemRoutes } from "./modules/system/system.routes.js";
 import { startMetricsCollector } from "./modules/system/metrics.store.js";
+import { initializeStorage } from "./modules/filesystem/filesystem.service.js";
 
 const app = new Hono();
 
@@ -37,7 +38,9 @@ serve(
         port: PORT,
         hostname: HOST,
     },
-    (info) => {
+    async (info) => {
+        await initializeStorage();
+
         console.log(`
   HomeHub Server
   -----------------------------
