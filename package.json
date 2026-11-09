@@ -1,0 +1,20 @@
+{
+    "name": "homehub",
+    "version": "0.1.0",
+    "private": true,
+    "description": "Self-hosted personal infrastructure platform",
+    "workspaces": [
+        "apps/*",
+        "packages/*"
+    ],
+    "scripts": {
+        "dev": "concurrently -k -n server,web -c blue,green \"npm run dev -w @homehub/server\" \"npm run dev -w @homehub/web\"",
+        "build": "npm run build --workspaces --if-present",
+        "test": "npm run test --workspaces --if-present",
+        "typecheck": "npm run typecheck --workspaces --if-present"
+    },
+    "devDependencies": {
+        "concurrently": "^9.2.1",
+        "typescript": "^5.9.3"
+    }
+}

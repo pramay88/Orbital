@@ -1,0 +1,299 @@
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap");
+
+:root {
+  font-family: "DM Sans", sans-serif;
+  color: #e8eaf0;
+  background: #0b0d12;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+}
+
+.dashboard {
+  min-height: 100vh;
+  display: flex;
+}
+
+.sidebar {
+  width: 245px;
+  background: #10131a;
+  border-right: 1px solid #242833;
+  padding: 28px 18px;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 21px;
+  font-weight: 700;
+  margin-bottom: 52px;
+}
+
+.brand-icon {
+  background: #6366f1;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+}
+
+.nav-label,
+.eyebrow {
+  color: #777e90;
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  font-weight: 700;
+}
+
+.nav-label {
+  margin-bottom: 16px;
+}
+
+nav {
+  display: grid;
+  gap: 8px;
+}
+
+.nav-item {
+  padding: 12px;
+  color: #959bad;
+  border-radius: 8px;
+  font-size: 13px;
+  cursor: default;
+}
+
+.nav-item.active {
+  background: #20233a;
+  color: #a5a8ff;
+}
+
+.sidebar-footer {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-top: 1px solid #242833;
+  padding-top: 20px;
+}
+
+.avatar {
+  background: #292d43;
+  padding: 10px;
+  border-radius: 9px;
+  font-size: 12px;
+}
+
+.sidebar-footer strong,
+.sidebar-footer small {
+  display: block;
+  font-size: 12px;
+}
+
+.sidebar-footer small {
+  color: #858b9c;
+  margin-top: 4px;
+}
+
+.main-content {
+  flex: 1;
+  max-width: 1500px;
+  padding: 36px 44px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 32px;
+}
+
+.topbar small {
+  color: #777e90;
+  font-size: 10px;
+  letter-spacing: 1px;
+}
+
+h1 {
+  font-size: 27px;
+  margin: 7px 0 0;
+}
+
+.connection {
+  font-size: 12px;
+  color: #aeb4c4;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.online {
+  background: #22c55e;
+  box-shadow: 0 0 10px #22c55e66;
+}
+
+.offline {
+  background: #ef4444;
+}
+
+.welcome {
+  background: linear-gradient(115deg, #202344, #171c2c);
+  border: 1px solid #33385a;
+  border-radius: 14px;
+  padding: 30px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 38px;
+}
+
+.welcome h2 {
+  font-size: 23px;
+  margin: 12px 0;
+}
+
+.welcome p {
+  color: #a7adc1;
+  font-size: 13px;
+}
+
+.welcome-icon {
+  font-size: 58px;
+  color: #a5a8ff;
+  padding-right: 18px;
+}
+
+h3 {
+  font-size: 16px;
+  margin: 28px 0 18px;
+}
+
+.stats-grid,
+.services-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.stat-card,
+.service-card {
+  background: #121620;
+  border: 1px solid #252b38;
+  border-radius: 11px;
+  padding: 20px;
+}
+
+.stat-card span,
+.stat-card small {
+  display: block;
+  color: #8e96a8;
+  font-size: 12px;
+}
+
+.stat-card strong {
+  display: block;
+  font-size: 25px;
+  margin: 18px 0 7px;
+}
+
+.service-card {
+  min-height: 170px;
+}
+
+.service-icon {
+  color: #a5a8ff;
+  font-size: 23px;
+}
+
+.service-card h4 {
+  font-size: 14px;
+  margin: 15px 0 7px;
+}
+
+.service-card p,
+.service-card small {
+  color: #9299aa;
+  font-size: 11px;
+}
+
+.service-card small {
+  display: inline-block;
+  margin-top: 8px;
+  color: #a5a8ff;
+}
+
+.footer {
+  margin-top: 45px;
+  padding-top: 18px;
+  border-top: 1px solid #252b38;
+  font-size: 11px;
+  color: #777e90;
+}
+
+@media (max-width: 900px) {
+  .sidebar {
+    width: 190px;
+  }
+
+  .main-content {
+    padding: 28px 22px;
+  }
+
+  .stats-grid,
+  .services-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 600px) {
+  .sidebar {
+    display: none;
+  }
+
+  .main-content {
+    padding: 24px 16px;
+  }
+
+  .welcome {
+    padding: 22px;
+  }
+
+  .welcome-icon {
+    display: none;
+  }
+
+  .welcome h2 {
+    font-size: 19px;
+  }
+
+  .stats-grid,
+  .services-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .stat-card,
+  .service-card {
+    padding: 14px;
+  }
+}
