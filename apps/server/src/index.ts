@@ -1,11 +1,13 @@
-
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
+import { systemRoutes } from "./modules/system/system.routes.js";
 
 const app = new Hono();
 
 const PORT = Number(process.env.PORT ?? 3001);
-const HOST = process.env.HOST ?? "0.0.0.0";
+const HOST = process.env.HOST ?? "127.0.0.1";
+
+app.route("/api/system", systemRoutes);
 
 // Root endpoint
 app.get("/", (c) => {

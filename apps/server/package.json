@@ -18,6 +18,7 @@
   "dependencies": {
     "@hono/node-server": "^2.1.6",
     "hono": "^4.13.17",
+    "systeminformation": "^5.33.19",
     "zod": "^4.6.7"
   }
 }

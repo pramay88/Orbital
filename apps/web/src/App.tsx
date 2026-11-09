@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import "./App.css";
 
@@ -9,9 +8,75 @@ interface HealthResponse {
   uptime: number;
 }
 
+
+interface SystemOverview {
+  timestamp: string;
+
+  cpu: {
+    manufacturer: string;
+    brand: string;
+    physicalCores: number;
+    logicalCores: number;
+    speedGHz: number;
+    usagePercent: number;
+  };
+
+  memory: {
+    total: number;
+    used: number;
+    available: number;
+    usagePercent: number;
+  };
+
+  disks: {
+    filesystem: string;
+    mount: string;
+    type: string;
+    total: number;
+    used: number;
+    available: number;
+    usagePercent: number;
+  }[];
+
+  operatingSystem: {
+    platform: string;
+    distribution: string;
+    release: string;
+    architecture: string;
+    hostname: string;
+  };
+
+  uptime: {
+    systemSeconds: number;
+    processSeconds: number;
+  };
+
+  network: {
+    name: string;
+    type: string;
+    ipv4: string;
+    ipv6: string;
+    state: string;
+    speedMbps: number;
+    internal: boolean;
+  }[];
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes === 0) return "0 B";
+
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  const index = Math.floor(Math.log(bytes) / Math.log(1024));
+
+  return `${(bytes / Math.pow(1024, index)).toFixed(2)} ${units[index]}`;
+}
+
+
 function App() {
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [error, setError] = useState(false);
+  const [system, setSystem] = useState<SystemOverview | null>(null);
+  const [systemError, setSystemError] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -47,6 +112,42 @@ function App() {
       clearInterval(interval);
     };
   }, []);
+
+
+  useEffect(() => {
+    let active = true;
+
+    async function fetchSystemInfo() {
+      try {
+        const response = await fetch("/api/system/overview");
+
+        if (!response.ok) {
+          throw new Error("System API unavailable");
+        }
+
+        const result = await response.json();
+
+        if (active) {
+          setSystem(result.data);
+          setSystemError(false);
+        }
+      } catch {
+        if (active) {
+          setSystemError(true);
+        }
+      }
+    }
+
+    fetchSystemInfo();
+
+    const interval = setInterval(fetchSystemInfo, 5000);
+
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
+  }, []);
+
 
   const uptime = health
     ? `${Math.floor(health.uptime / 3600)}h ${Math.floor(
@@ -109,6 +210,7 @@ function App() {
 
         <h3>System overview</h3>
 
+
         <section className="stats-grid">
           <StatCard
             label="Server status"
@@ -117,23 +219,107 @@ function App() {
           />
 
           <StatCard
-            label="Server uptime"
-            value={uptime}
-            detail="Since process started"
-          />
-
-          <StatCard
             label="CPU usage"
-            value="--"
-            detail="Metrics coming in M2"
+            value={
+              system ? `${system.cpu.usagePercent}%` : "--"
+            }
+            detail={
+              system
+                ? `${system.cpu.logicalCores} logical cores`
+                : "Collecting metrics..."
+            }
           />
 
           <StatCard
             label="Memory usage"
-            value="--"
-            detail="Metrics coming in M2"
+            value={
+              system ? `${system.memory.usagePercent}%` : "--"
+            }
+            detail={
+              system
+                ? `${formatBytes(system.memory.used)} / ${formatBytes(system.memory.total)}`
+                : "Collecting metrics..."
+            }
+          />
+
+          <StatCard
+            label="Storage usage"
+            value={
+              system?.disks[0]
+                ? `${system.disks[0].usagePercent.toFixed(1)}%`
+                : "--"
+            }
+            detail={
+              system?.disks[0]
+                ? `${formatBytes(system.disks[0].available)} available`
+                : "Collecting metrics..."
+            }
           />
         </section>
+
+
+        <h3>Hardware & environment</h3>
+
+        <section className="stats-grid">
+          <StatCard
+            label="Processor"
+            value={system?.cpu.brand ?? "--"}
+            detail={
+              system
+                ? `${system.cpu.physicalCores} physical / ${system.cpu.logicalCores} logical cores`
+                : "Unavailable"
+            }
+          />
+
+          <StatCard
+            label="Operating system"
+            value={system?.operatingSystem.distribution ?? "--"}
+            detail={
+              system
+                ? `${system.operatingSystem.release} · ${system.operatingSystem.architecture}`
+                : "Unavailable"
+            }
+          />
+
+          <StatCard
+            label="System uptime"
+            value={
+              system
+                ? `${Math.floor(system.uptime.systemSeconds / 86400)}d ${Math.floor((system.uptime.systemSeconds % 86400) / 3600)}h`
+                : "--"
+            }
+            detail="Host operating system"
+          />
+
+          <StatCard
+            label="Hostname"
+            value={system?.operatingSystem.hostname ?? "--"}
+            detail="Machine identity"
+          />
+        </section>
+
+        <h3>Network interfaces</h3>
+
+        <section className="services-grid">
+          {system?.network
+            .filter((network) => !network.internal)
+            .map((network) => (
+              <article className="service-card" key={network.name}>
+                <div className="service-icon">⌘</div>
+                <h4>{network.name}</h4>
+                <p>{network.ipv4 || "No IPv4 address"}</p>
+                <small>
+                  {network.state} · {network.type}
+                </small>
+              </article>
+            ))}
+        </section>
+
+        {systemError && (
+          <p role="alert">Unable to refresh system metrics.</p>
+        )}
+
+
 
         <h3>Services</h3>
 
