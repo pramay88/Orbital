@@ -147,4 +147,118 @@ describe("Filesystem service", () => {
             await rm(linkPath, { recursive: true, force: true });
         }
     });
+
+    it("should create a directory", async () => {
+        await filesystem.createDirectory("Documents", "Projects");
+
+        const result = await filesystem.listDirectory("Documents");
+
+        expect(
+            result.entries.some(
+                (entry) => entry.name === "Projects",
+            ),
+        ).toBe(true);
+    });
+
+    it("should reject duplicate directory creation", async () => {
+        await filesystem.createDirectory("Documents", "Duplicate");
+
+        await expect(
+            filesystem.createDirectory("Documents", "Duplicate"),
+        ).rejects.toMatchObject({
+            statusCode: 409,
+        });
+    });
+
+    it("should rename a file", async () => {
+        await writeFile(
+            path.join(storageRoot, "Documents", "old-name.txt"),
+            "Rename test",
+        );
+
+        await filesystem.renameEntry(
+            "Documents/old-name.txt",
+            "new-name.txt",
+        );
+
+        const result = await filesystem.listDirectory("Documents");
+
+        expect(
+            result.entries.some(
+                (entry) => entry.name === "new-name.txt",
+            ),
+        ).toBe(true);
+    });
+
+    it("should delete a file", async () => {
+        await writeFile(
+            path.join(storageRoot, "Documents", "delete-me.txt"),
+            "Delete test",
+        );
+
+        await filesystem.deleteEntry("Documents/delete-me.txt");
+
+        const result = await filesystem.listDirectory("Documents");
+
+        expect(
+            result.entries.some(
+                (entry) => entry.name === "delete-me.txt",
+            ),
+        ).toBe(false);
+    });
+
+    it("should reject deletion of non-empty directories", async () => {
+        await mkdir(
+            path.join(storageRoot, "Documents", "NonEmpty"),
+        );
+
+        await writeFile(
+            path.join(storageRoot, "Documents", "NonEmpty", "keep.txt"),
+            "Keep this file",
+        );
+
+        await expect(
+            filesystem.deleteEntry("Documents/NonEmpty"),
+        ).rejects.toMatchObject({
+            statusCode: 409,
+        });
+    });
+
+    it("should upload a file", async () => {
+        const content = Buffer.from("HomeHub upload test");
+
+        const result = await filesystem.uploadFile(
+            "Documents",
+            "uploaded.txt",
+            content,
+        );
+
+        expect(result).toMatchObject({
+            name: "uploaded.txt",
+            path: "Documents/uploaded.txt",
+            type: "file",
+            size: content.length,
+        });
+    });
+
+    it("should reject duplicate uploads", async () => {
+        const content = Buffer.from("Duplicate upload test");
+
+        await filesystem.uploadFile(
+            "Documents",
+            "duplicate.txt",
+            content,
+        );
+
+        await expect(
+            filesystem.uploadFile(
+                "Documents",
+                "duplicate.txt",
+                content,
+            ),
+        ).rejects.toMatchObject({
+            statusCode: 409,
+        });
+    });
+
 });
