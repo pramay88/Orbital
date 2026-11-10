@@ -7,7 +7,10 @@ import {
     createDirectory,
     renameEntry,
     deleteEntry,
+    getDownloadFile,
 } from "./filesystem.service.js";
+import { createReadStream } from "node:fs";
+import { Readable } from "node:stream";
 
 export const filesystemRoutes = new Hono();
 
@@ -168,6 +171,43 @@ filesystemRoutes.delete("/", async (c) => {
         return c.json({
             success: true,
             message: "Entry deleted",
+        });
+    } catch (error) {
+        return handleFilesystemError(error, c);
+    }
+});
+
+filesystemRoutes.get("/download", async (c) => {
+    try {
+        const parsed = pathSchema.safeParse({
+            path: c.req.query("path"),
+        });
+
+        if (!parsed.success || !parsed.data.path) {
+            return c.json(
+                { error: "A valid file path is required" },
+                400,
+            );
+        }
+
+        const file = await getDownloadFile(parsed.data.path);
+
+        const nodeStream = createReadStream(file.absolutePath);
+        const webStream = Readable.toWeb(nodeStream) as unknown as globalThis.ReadableStream;
+
+        const headers = new Headers();
+
+        headers.set("Content-Type", "application/octet-stream");
+        headers.set("Content-Length", String(file.size));
+        headers.set(
+            "Content-Disposition",
+            `attachment; filename*=UTF-8''${encodeURIComponent(file.name)}`,
+        );
+        headers.set("X-Content-Type-Options", "nosniff");
+
+        return new Response(webStream, {
+            status: 200,
+            headers,
         });
     } catch (error) {
         return handleFilesystemError(error, c);

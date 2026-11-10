@@ -9,6 +9,8 @@ import {
 } from "node:fs/promises";
 
 import path from "node:path";
+import { createReadStream } from "node:fs";
+import { stat } from "node:fs/promises";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 
 import type {
@@ -351,4 +353,31 @@ export async function deleteEntry(
     }
 
     throw new FilesystemError("Unsupported filesystem entry", 400);
+}
+
+export interface DownloadFile {
+  absolutePath: string;
+  name: string;
+  size: number;
+}
+
+export async function getDownloadFile(
+  relativePath: string,
+): Promise<DownloadFile> {
+  const targetPath = await resolveSafeEntry(relativePath);
+
+  const stats = await stat(targetPath);
+
+  if (!stats.isFile()) {
+    throw new FilesystemError(
+      "Only files can be downloaded",
+      400,
+    );
+  }
+
+  return {
+    absolutePath: targetPath,
+    name: path.basename(targetPath),
+    size: stats.size,
+  };
 }
