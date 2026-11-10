@@ -6,6 +6,7 @@ import {
     rename as renameFs,
     unlink,
     rmdir,
+    open,
 } from "node:fs/promises";
 
 import path from "node:path";
@@ -356,28 +357,86 @@ export async function deleteEntry(
 }
 
 export interface DownloadFile {
-  absolutePath: string;
-  name: string;
-  size: number;
+    absolutePath: string;
+    name: string;
+    size: number;
 }
 
 export async function getDownloadFile(
-  relativePath: string,
+    relativePath: string,
 ): Promise<DownloadFile> {
-  const targetPath = await resolveSafeEntry(relativePath);
+    const targetPath = await resolveSafeEntry(relativePath);
 
-  const stats = await stat(targetPath);
+    const stats = await stat(targetPath);
 
-  if (!stats.isFile()) {
-    throw new FilesystemError(
-      "Only files can be downloaded",
-      400,
-    );
-  }
+    if (!stats.isFile()) {
+        throw new FilesystemError(
+            "Only files can be downloaded",
+            400,
+        );
+    }
 
-  return {
-    absolutePath: targetPath,
-    name: path.basename(targetPath),
-    size: stats.size,
-  };
+    return {
+        absolutePath: targetPath,
+        name: path.basename(targetPath),
+        size: stats.size,
+    };
+}
+
+export async function uploadFile(
+    parentRelativePath: string,
+    name: string,
+    content: Buffer,
+): Promise<FileEntry> {
+    const parentPath = await resolveSafePath(parentRelativePath);
+    const safeName = validateEntryName(name);
+
+    const targetPath = path.join(parentPath, safeName);
+
+    let handle;
+
+    // "wx" creates a new file exclusively.
+    // It fails if a file or directory already exists.
+    try {
+        handle = await open(targetPath, "wx");
+    } catch (error) {
+        if (
+            error &&
+            typeof error === "object" &&
+            "code" in error &&
+            error.code === "EEXIST"
+        ) {
+            throw new FilesystemError(
+                "An entry with this name already exists",
+                409,
+            );
+        }
+
+        throw error;
+    }
+
+    try {
+        await handle.writeFile(content);
+
+        const stats = await handle.stat();
+
+        return {
+            name: safeName,
+            path: path.relative(
+                getRoot(),
+                targetPath,
+            ).split(path.sep).join("/"),
+            type: "file",
+            size: stats.size,
+            modifiedAt: stats.mtime.toISOString(),
+        };
+    } catch (error) {
+        // Remove partially written files.
+        await handle.close().catch(() => { });
+        await unlink(targetPath).catch(() => { });
+
+        throw error;
+    } finally {
+        await handle.close().catch(() => { });
+    }
 }

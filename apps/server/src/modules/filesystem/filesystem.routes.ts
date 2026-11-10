@@ -8,9 +8,13 @@ import {
     renameEntry,
     deleteEntry,
     getDownloadFile,
+    uploadFile
 } from "./filesystem.service.js";
 import { createReadStream } from "node:fs";
 import { Readable } from "node:stream";
+import { bodyLimit } from "hono/body-limit";
+
+const MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
 
 export const filesystemRoutes = new Hono();
 
@@ -213,3 +217,63 @@ filesystemRoutes.get("/download", async (c) => {
         return handleFilesystemError(error, c);
     }
 });
+
+filesystemRoutes.post(
+    "/upload",
+    bodyLimit({
+        maxSize: MAX_UPLOAD_BYTES,
+    }),
+    async (c) => {
+        try {
+            const form = await c.req.parseBody();
+
+            const file = form["file"];
+            const parentPath = form["path"];
+
+            if (!(file instanceof File)) {
+                return c.json(
+                    { error: "A file is required" },
+                    400,
+                );
+            }
+
+            if (
+                parentPath !== undefined &&
+                typeof parentPath !== "string"
+            ) {
+                return c.json(
+                    { error: "Invalid destination path" },
+                    400,
+                );
+            }
+
+            if (file.size > MAX_UPLOAD_BYTES) {
+                return c.json(
+                    { error: "Maximum upload size is 50 MB" },
+                    413,
+                );
+            }
+
+            const content = Buffer.from(
+                await file.arrayBuffer(),
+            );
+
+            const result = await uploadFile(
+                parentPath ?? "",
+                file.name,
+                content,
+            );
+
+            return c.json(
+                {
+                    success: true,
+                    message: "File uploaded",
+                    data: result,
+                },
+                201,
+            );
+        } catch (error) {
+            return handleFilesystemError(error, c);
+        }
+    },
+);
