@@ -308,101 +308,145 @@ export async function createDirectory(
     parentRelativePath: string,
     name: string,
 ): Promise<void> {
-    const parentPath = await resolveSafePath(parentRelativePath);
-    const safeName = validateEntryName(name);
+    return withMutationLock(async () => {
 
-    const targetPath = path.join(parentPath, safeName);
+        const parentPath = await resolveSafePath(parentRelativePath);
+        const safeName = validateEntryName(name);
 
-    try {
-        await mkdir(targetPath);
-    } catch (error) {
-        if (
-            error &&
-            typeof error === "object" &&
-            "code" in error &&
-            error.code === "EEXIST"
-        ) {
-            throw new FilesystemError("An entry with this name already exists", 409);
+        const targetPath = path.join(parentPath, safeName);
+
+        try {
+            await mkdir(targetPath);
+        } catch (error) {
+            if (
+                error &&
+                typeof error === "object" &&
+                "code" in error &&
+                error.code === "EEXIST"
+            ) {
+                throw new FilesystemError("An entry with this name already exists", 409);
+            }
+
+            throw error;
         }
-
-        throw error;
-    }
+    });
 }
 
 export async function renameEntry(
     relativePath: string,
     newName: string,
 ): Promise<void> {
-    const sourcePath = await resolveSafeEntry(relativePath);
-    const safeName = validateEntryName(newName);
+    return withMutationLock(async () => {
+        const sourcePath = await resolveSafeEntry(relativePath);
+        const safeName = validateEntryName(newName);
 
-    if (path.basename(sourcePath) === safeName) {
-        return;
-    }
-
-    const targetPath = path.join(path.dirname(sourcePath), safeName);
-
-    try {
-        await lstat(targetPath);
-
-        throw new FilesystemError(
-            "An entry with this name already exists",
-            409,
-        );
-    } catch (error) {
-        if (error instanceof FilesystemError) {
-            throw error;
-        }
+        const currentName = path.basename(sourcePath);
 
         if (
-            !error ||
-            typeof error !== "object" ||
-            !("code" in error) ||
-            error.code !== "ENOENT"
+            process.platform === "win32"
+                ? currentName.toLowerCase() === safeName.toLowerCase()
+                : currentName === safeName
         ) {
-            throw error;
+            return;
         }
-    }
 
-    await renameFs(sourcePath, targetPath);
-}
+        const targetPath = path.join(
+            path.dirname(sourcePath),
+            safeName,
+        );
 
-export async function deleteEntry(
-    relativePath: string,
-): Promise<void> {
-    const targetPath = await resolveSafeEntry(relativePath);
-
-    const stats = await lstat(targetPath);
-
-    if (stats.isDirectory()) {
+        // Check destination before attempting the rename.
         try {
-            // Only empty directories can be deleted.
-            await rmdir(targetPath);
+            await lstat(targetPath);
+
+            throw new FilesystemError(
+                "An entry with this name already exists",
+                409,
+            );
+        } catch (error) {
+            if (error instanceof FilesystemError) {
+                throw error;
+            }
+
+            if (
+                !error ||
+                typeof error !== "object" ||
+                !("code" in error) ||
+                error.code !== "ENOENT"
+            ) {
+                throw error;
+            }
+        }
+
+        try {
+            await renameFs(sourcePath, targetPath);
         } catch (error) {
             if (
                 error &&
                 typeof error === "object" &&
                 "code" in error &&
-                error.code === "ENOTEMPTY"
+                ["EEXIST", "ENOTEMPTY"].includes(String(error.code))
             ) {
                 throw new FilesystemError(
-                    "Directory is not empty",
+                    "An entry with this name already exists",
                     409,
                 );
             }
 
             throw error;
         }
+    });
+}
 
-        return;
-    }
+export async function deleteEntry(
+    relativePath: string,
+): Promise<void> {
+    return withMutationLock(async () => {
+        const targetPath = await resolveSafeEntry(relativePath);
 
-    if (stats.isFile()) {
-        await unlink(targetPath);
-        return;
-    }
+        const stats = await lstat(targetPath);
 
-    throw new FilesystemError("Unsupported filesystem entry", 400);
+        // Do not follow or delete a symbolic link.
+        if (stats.isSymbolicLink()) {
+            throw new FilesystemError(
+                "Symbolic links are not supported",
+                403,
+            );
+        }
+
+        if (stats.isDirectory()) {
+            try {
+                // Only empty directories can be deleted.
+                await rmdir(targetPath);
+            } catch (error) {
+                if (
+                    error &&
+                    typeof error === "object" &&
+                    "code" in error &&
+                    ["ENOTEMPTY", "EEXIST"].includes(String(error.code))
+                ) {
+                    throw new FilesystemError(
+                        "Directory is not empty",
+                        409,
+                    );
+                }
+
+                throw error;
+            }
+
+            return;
+        }
+
+        if (stats.isFile()) {
+            await unlink(targetPath);
+            return;
+        }
+
+        throw new FilesystemError(
+            "Unsupported filesystem entry",
+            400,
+        );
+    });
 }
 
 export interface DownloadFile {
@@ -473,68 +517,92 @@ export async function uploadFile(
     name: string,
     content: Buffer,
 ): Promise<FileEntry> {
-    if (content.length > MAX_UPLOAD_BYTES) {
-        throw new FilesystemError(
-            "Maximum upload size is 50 MB",
-            413,
-        );
-    }
-
-    const parentPath = await resolveSafePath(parentRelativePath);
-    const safeName = validateEntryName(name);
-    const targetPath = path.join(parentPath, safeName);
-
-    let handle: FileHandle | undefined;
-    let created = false;
-
-    try {
-        // Create exclusively. Never overwrite an existing entry.
-        handle = await open(targetPath, "wx");
-        created = true;
-
-        await handle.writeFile(content);
-
-        const stats = await handle.stat();
-
-        // Close before returning. Set undefined to prevent
-        // accidentally closing the same handle again.
-        await handle.close();
-        handle = undefined;
-
-        return {
-            name: safeName,
-            path: path.relative(
-                getRoot(),
-                targetPath,
-            ).split(path.sep).join("/"),
-            type: "file",
-            size: stats.size,
-            modifiedAt: stats.mtime.toISOString(),
-        };
-    } catch (error) {
-        // Close the handle once if an operation failed.
-        if (handle) {
-            await handle.close().catch(() => { });
-            handle = undefined;
-        }
-
-        // Remove only a file created by this upload operation.
-        if (created) {
-            await unlink(targetPath).catch(() => { });
-        }
-
-        if (
-            error &&
-            typeof error === "object" &&
-            "code" in error &&
-            error.code === "EEXIST"
-        ) {
+    return withMutationLock(async () => {
+        if (content.length > MAX_UPLOAD_BYTES) {
             throw new FilesystemError(
-                "An entry with this name already exists",
-                409,
+                "Maximum upload size is 50 MB",
+                413,
             );
         }
 
-        throw error;
+        const parentPath = await resolveSafePath(parentRelativePath);
+        const safeName = validateEntryName(name);
+        const targetPath = path.join(parentPath, safeName);
+
+        let handle: FileHandle | undefined;
+        let created = false;
+
+        try {
+            // Create exclusively. Never overwrite an existing entry.
+            handle = await open(targetPath, "wx");
+            created = true;
+
+            await handle.writeFile(content);
+
+            const stats = await handle.stat();
+
+            await handle.close();
+            handle = undefined;
+
+            return {
+                name: safeName,
+                path: path.relative(
+                    getRoot(),
+                    targetPath,
+                ).split(path.sep).join("/"),
+                type: "file",
+                size: stats.size,
+                modifiedAt: stats.mtime.toISOString(),
+            };
+        } catch (error) {
+            if (handle) {
+                await handle.close().catch(() => { });
+                handle = undefined;
+            }
+
+            // Remove only the file created by this upload.
+            if (created) {
+                await unlink(targetPath).catch(() => { });
+            }
+
+            if (
+                error &&
+                typeof error === "object" &&
+                "code" in error &&
+                error.code === "EEXIST"
+            ) {
+                throw new FilesystemError(
+                    "An entry with this name already exists",
+                    409,
+                );
+            }
+
+            throw error;
+        }
+    });
+}
+
+// Serialize filesystem mutations initiated by this process.
+// This prevents concurrent HomeHub requests from interfering
+// with one another during create, rename, delete, and upload.
+let mutationQueue: Promise<void> = Promise.resolve();
+
+async function withMutationLock<T>(
+    operation: () => Promise<T>,
+): Promise<T> {
+    const previous = mutationQueue;
+
+    let release!: () => void;
+
+    mutationQueue = new Promise<void>((resolve) => {
+        release = resolve;
+    });
+
+    await previous;
+
+    try {
+        return await operation();
+    } finally {
+        release();
     }
 }

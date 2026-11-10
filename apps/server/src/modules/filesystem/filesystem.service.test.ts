@@ -261,4 +261,149 @@ describe("Filesystem service", () => {
         });
     });
 
+    it("should reject junctions inside nested directories", async () => {
+        const linkPath = path.join(
+            storageRoot,
+            "Documents",
+            "outside-link",
+        );
+
+        await symlink(outsideRoot, linkPath, "junction");
+
+        try {
+            await expect(
+                filesystem.listDirectory("Documents/outside-link"),
+            ).rejects.toMatchObject({
+                statusCode: 403,
+            });
+        } finally {
+            await rm(linkPath, { recursive: true, force: true });
+        }
+    });
+
+    it("should reject Windows alternate data stream paths", async () => {
+        await expect(
+            filesystem.listDirectory("Documents/file.txt:stream"),
+        ).rejects.toMatchObject({
+            statusCode: 400,
+        });
+    });
+
+    it("should reject Windows reserved filenames", async () => {
+        await expect(
+            filesystem.createDirectory("Documents", "CON"),
+        ).rejects.toMatchObject({
+            statusCode: 400,
+        });
+    });
+
+    it("should reject filenames ending with a dot", async () => {
+        await expect(
+            filesystem.createDirectory("Documents", "Reports."),
+        ).rejects.toMatchObject({
+            statusCode: 400,
+        });
+    });
+
+    it("should reject renaming to an existing filename", async () => {
+        await writeFile(
+            path.join(storageRoot, "Documents", "source.txt"),
+            "Original source",
+        );
+
+        await writeFile(
+            path.join(storageRoot, "Documents", "destination.txt"),
+            "Original destination",
+        );
+
+        await expect(
+            filesystem.renameEntry(
+                "Documents/source.txt",
+                "destination.txt",
+            ),
+        ).rejects.toMatchObject({
+            statusCode: 409,
+        });
+
+        const result = await filesystem.listDirectory("Documents");
+
+        expect(
+            result.entries.some((entry) => entry.name === "source.txt"),
+        ).toBe(true);
+
+        expect(
+            result.entries.some((entry) => entry.name === "destination.txt"),
+        ).toBe(true);
+    });
+
+    it("should delete an empty directory", async () => {
+        await mkdir(
+            path.join(storageRoot, "Documents", "EmptyDirectory"),
+        );
+
+        await filesystem.deleteEntry("Documents/EmptyDirectory");
+
+        const result = await filesystem.listDirectory("Documents");
+
+        expect(
+            result.entries.some(
+                (entry) => entry.name === "EmptyDirectory",
+            ),
+        ).toBe(false);
+    });
+
+    it("should open a file safely for downloading", async () => {
+        const download = await filesystem.openDownloadFile(
+            "Documents/report.txt",
+        );
+
+        try {
+            expect(download.name).toBe("report.txt");
+
+            expect(download.size).toBe(
+                Buffer.byteLength("HomeHub filesystem test"),
+            );
+
+            const content = await download.handle.readFile("utf8");
+
+            expect(content).toBe("HomeHub filesystem test");
+        } finally {
+            await download.handle.close();
+        }
+    });
+
+    it("should safely handle concurrent uploads with the same filename", async () => {
+        const firstContent = Buffer.from("First upload");
+        const secondContent = Buffer.from("Second upload");
+
+        const results = await Promise.allSettled([
+            filesystem.uploadFile(
+                "Documents",
+                "concurrent.txt",
+                firstContent,
+            ),
+            filesystem.uploadFile(
+                "Documents",
+                "concurrent.txt",
+                secondContent,
+            ),
+        ]);
+
+        const successful = results.filter(
+            (result) => result.status === "fulfilled",
+        );
+
+        const failed = results.filter(
+            (result) => result.status === "rejected",
+        );
+
+        expect(successful).toHaveLength(1);
+        expect(failed).toHaveLength(1);
+
+        if (failed[0].status === "rejected") {
+            expect(failed[0].reason).toMatchObject({
+                statusCode: 409,
+            });
+        }
+    });
 });
