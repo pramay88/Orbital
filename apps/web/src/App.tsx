@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import "./App.css";
 import MetricChart from "./components/MetricChart";
+import FileManager from "./components/FileManager";
 import type { MetricsSnapshot } from "./types/system";
 
 
@@ -512,7 +513,7 @@ function App() {
           <p role="alert">Unable to refresh system metrics.</p>
         )}
 
-
+        <FileManager />
 
         <h3>Services</h3>
 
