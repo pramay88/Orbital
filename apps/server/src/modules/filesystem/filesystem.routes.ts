@@ -7,14 +7,13 @@ import {
     createDirectory,
     renameEntry,
     deleteEntry,
-    getDownloadFile,
-    uploadFile
+    openDownloadFile,
+    uploadFile,
+    MAX_UPLOAD_BYTES,
 } from "./filesystem.service.js";
-import { createReadStream } from "node:fs";
 import { Readable } from "node:stream";
 import { bodyLimit } from "hono/body-limit";
 
-const MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
 
 export const filesystemRoutes = new Hono();
 
@@ -182,6 +181,8 @@ filesystemRoutes.delete("/", async (c) => {
 });
 
 filesystemRoutes.get("/download", async (c) => {
+    let file: Awaited<ReturnType<typeof openDownloadFile>> | undefined;
+
     try {
         const parsed = pathSchema.safeParse({
             path: c.req.query("path"),
@@ -194,10 +195,16 @@ filesystemRoutes.get("/download", async (c) => {
             );
         }
 
-        const file = await getDownloadFile(parsed.data.path);
+        file = await openDownloadFile(parsed.data.path);
 
-        const nodeStream = createReadStream(file.absolutePath);
-        const webStream = Readable.toWeb(nodeStream) as unknown as globalThis.ReadableStream;
+        // Stream from the already-open file handle.
+        const nodeStream = file.handle.createReadStream({
+            autoClose: true,
+        });
+
+        const webStream = Readable.toWeb(
+            nodeStream,
+        ) as unknown as globalThis.ReadableStream;
 
         const headers = new Headers();
 
@@ -214,6 +221,11 @@ filesystemRoutes.get("/download", async (c) => {
             headers,
         });
     } catch (error) {
+        // If streaming has not started, close the opened handle.
+        if (file) {
+            await file.handle.close().catch(() => { });
+        }
+
         return handleFilesystemError(error, c);
     }
 });

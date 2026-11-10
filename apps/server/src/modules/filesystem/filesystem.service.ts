@@ -7,6 +7,7 @@ import {
     unlink,
     rmdir,
     open,
+    type FileHandle,
 } from "node:fs/promises";
 
 import path from "node:path";
@@ -24,6 +25,8 @@ import type {
 const STORAGE_ROOT =
     process.env.HOMEHUB_STORAGE_DIR ??
     "D:\\HomeHub-Storage";
+
+export const MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
 
 let resolvedRoot: string | null = null;
 
@@ -96,6 +99,7 @@ function isInsideRoot(target: string): boolean {
 }
 
 // Resolve and validate a client-provided relative path.
+// Reject symbolic links and junctions in every path component.
 async function resolveSafePath(
     relativePath: string,
 ): Promise<string> {
@@ -114,30 +118,75 @@ async function resolveSafePath(
 
     const segments = normalized.split("/").filter(Boolean);
 
-    if (segments.some((segment) => segment === "." || segment === "..")) {
-        throw new FilesystemError("Path traversal is not allowed", 403);
+    // Reject traversal and invalid Windows filename components.
+    for (const segment of segments) {
+        if (segment === "." || segment === "..") {
+            throw new FilesystemError(
+                "Path traversal is not allowed",
+                403,
+            );
+        }
+
+        // Validate each segment without silently changing its name.
+        if (validateEntryName(segment) !== segment) {
+            throw new FilesystemError("Invalid path", 400);
+        }
     }
 
-    const target = path.resolve(root, ...segments);
+    let currentPath = root;
 
-    if (!isInsideRoot(target)) {
-        throw new FilesystemError("Access denied", 403);
+    // Inspect every component rather than resolving the entire path
+    // through realpath() and potentially following an intermediate link.
+    for (let i = 0; i < segments.length; i++) {
+        currentPath = path.join(currentPath, segments[i]);
+
+        let stats;
+
+        try {
+            stats = await lstat(currentPath);
+        } catch (error) {
+            if (
+                error &&
+                typeof error === "object" &&
+                "code" in error &&
+                (error.code === "ENOENT" || error.code === "ENOTDIR")
+            ) {
+                throw new FilesystemError("Path not found", 404);
+            }
+
+            throw error;
+        }
+
+        // Reject symbolic links and Windows junctions.
+        if (stats.isSymbolicLink()) {
+            throw new FilesystemError(
+                "Symbolic links are not supported",
+                403,
+            );
+        }
+
+        // Intermediate components must be directories.
+        if (
+            i < segments.length - 1 &&
+            !stats.isDirectory()
+        ) {
+            throw new FilesystemError(
+                "Path component is not a directory",
+                400,
+            );
+        }
+
+        // Verify the actual resolved location remains inside storage.
+        const actualPath = await realpath(currentPath);
+
+        if (!isInsideRoot(actualPath)) {
+            throw new FilesystemError("Access denied", 403);
+        }
+
+        currentPath = actualPath;
     }
 
-    let actualPath: string;
-
-    try {
-        actualPath = await realpath(target);
-    } catch {
-        throw new FilesystemError("Path not found", 404);
-    }
-
-    // Prevent symbolic links from escaping the storage directory.
-    if (!isInsideRoot(actualPath)) {
-        throw new FilesystemError("Access denied", 403);
-    }
-
-    return actualPath;
+    return currentPath;
 }
 
 // List files and directories at a relative path.
@@ -357,30 +406,66 @@ export async function deleteEntry(
 }
 
 export interface DownloadFile {
-    absolutePath: string;
+    handle: FileHandle;
     name: string;
     size: number;
 }
 
-export async function getDownloadFile(
+export async function openDownloadFile(
     relativePath: string,
 ): Promise<DownloadFile> {
     const targetPath = await resolveSafeEntry(relativePath);
 
-    const stats = await stat(targetPath);
+    let handle: FileHandle;
 
-    if (!stats.isFile()) {
-        throw new FilesystemError(
-            "Only files can be downloaded",
-            400,
-        );
+    try {
+        // Open the file exactly once.
+        handle = await open(targetPath, "r");
+    } catch (error) {
+        if (
+            error &&
+            typeof error === "object" &&
+            "code" in error &&
+            error.code === "ENOENT"
+        ) {
+            throw new FilesystemError("File not found", 404);
+        }
+
+        if (
+            error &&
+            typeof error === "object" &&
+            "code" in error &&
+            error.code === "EISDIR"
+        ) {
+            throw new FilesystemError(
+                "Only files can be downloaded",
+                400,
+            );
+        }
+
+        throw error;
     }
 
-    return {
-        absolutePath: targetPath,
-        name: path.basename(targetPath),
-        size: stats.size,
-    };
+    try {
+        // Inspect the opened file, not the pathname.
+        const stats = await handle.stat();
+
+        if (!stats.isFile()) {
+            throw new FilesystemError(
+                "Only files can be downloaded",
+                400,
+            );
+        }
+
+        return {
+            handle,
+            name: path.basename(targetPath),
+            size: stats.size,
+        };
+    } catch (error) {
+        await handle.close().catch(() => { });
+        throw error;
+    }
 }
 
 export async function uploadFile(
@@ -388,18 +473,56 @@ export async function uploadFile(
     name: string,
     content: Buffer,
 ): Promise<FileEntry> {
+    if (content.length > MAX_UPLOAD_BYTES) {
+        throw new FilesystemError(
+            "Maximum upload size is 50 MB",
+            413,
+        );
+    }
+
     const parentPath = await resolveSafePath(parentRelativePath);
     const safeName = validateEntryName(name);
-
     const targetPath = path.join(parentPath, safeName);
 
-    let handle;
+    let handle: FileHandle | undefined;
+    let created = false;
 
-    // "wx" creates a new file exclusively.
-    // It fails if a file or directory already exists.
     try {
+        // Create exclusively. Never overwrite an existing entry.
         handle = await open(targetPath, "wx");
+        created = true;
+
+        await handle.writeFile(content);
+
+        const stats = await handle.stat();
+
+        // Close before returning. Set undefined to prevent
+        // accidentally closing the same handle again.
+        await handle.close();
+        handle = undefined;
+
+        return {
+            name: safeName,
+            path: path.relative(
+                getRoot(),
+                targetPath,
+            ).split(path.sep).join("/"),
+            type: "file",
+            size: stats.size,
+            modifiedAt: stats.mtime.toISOString(),
+        };
     } catch (error) {
+        // Close the handle once if an operation failed.
+        if (handle) {
+            await handle.close().catch(() => { });
+            handle = undefined;
+        }
+
+        // Remove only a file created by this upload operation.
+        if (created) {
+            await unlink(targetPath).catch(() => { });
+        }
+
         if (
             error &&
             typeof error === "object" &&
@@ -413,30 +536,5 @@ export async function uploadFile(
         }
 
         throw error;
-    }
-
-    try {
-        await handle.writeFile(content);
-
-        const stats = await handle.stat();
-
-        return {
-            name: safeName,
-            path: path.relative(
-                getRoot(),
-                targetPath,
-            ).split(path.sep).join("/"),
-            type: "file",
-            size: stats.size,
-            modifiedAt: stats.mtime.toISOString(),
-        };
-    } catch (error) {
-        // Remove partially written files.
-        await handle.close().catch(() => { });
-        await unlink(targetPath).catch(() => { });
-
-        throw error;
-    } finally {
-        await handle.close().catch(() => { });
     }
 }
