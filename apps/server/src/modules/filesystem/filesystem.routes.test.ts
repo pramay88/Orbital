@@ -215,6 +215,16 @@ describe("Filesystem API", () => {
         expect(await response.text()).toBe("Hello");
     });
 
+    it("should provide an inline text preview through the download API", async () => {
+        const response = await app.request(
+            "/api/files/download?path=Documents%2Fwelcome.txt&preview=1",
+        );
+
+        expect(response.status).toBe(200);
+        expect(response.headers.get("Content-Type")).toContain("text/plain");
+        expect(response.headers.get("Content-Disposition")).toContain("inline");
+    });
+
     it("should reject duplicate uploads", async () => {
         const form = new FormData();
 

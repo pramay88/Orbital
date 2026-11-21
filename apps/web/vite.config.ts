@@ -3,7 +3,6 @@ import react from "@vitejs/plugin-react";
 import os from "node:os";
 
 const deviceHostname = os.hostname().toLowerCase();
-console.log(deviceHostname)
 
 export default defineConfig({
   plugins: [react()],

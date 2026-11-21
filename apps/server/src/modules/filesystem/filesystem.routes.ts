@@ -250,16 +250,51 @@ filesystemRoutes.get("/download", async (c) => {
 
         const headers = new Headers();
 
-        headers.set("Content-Type", "application/octet-stream");
+        const preview = c.req.query("preview") === "1";
+        const extension = file.name.split(".").pop()?.toLowerCase();
+        const contentTypes: Record<string, string> = {
+            mp4: "video/mp4",
+            webm: "video/webm",
+            ogv: "video/ogg",
+            mov: "video/quicktime",
+            mp3: "audio/mpeg",
+            m4a: "audio/mp4",
+            wav: "audio/wav",
+            ogg: "audio/ogg",
+            flac: "audio/flac",
+            aac: "audio/aac",
+            jpg: "image/jpeg",
+            jpeg: "image/jpeg",
+            png: "image/png",
+            gif: "image/gif",
+            webp: "image/webp",
+            avif: "image/avif",
+            pdf: "application/pdf",
+            txt: "text/plain; charset=utf-8",
+            md: "text/plain; charset=utf-8",
+            csv: "text/csv; charset=utf-8",
+            json: "application/json",
+            xml: "application/xml",
+        };
+        headers.set("Content-Type", preview
+            ? (contentTypes[extension ?? ""] ?? "application/octet-stream")
+            : "application/octet-stream");
         headers.set("Content-Length", String(length));
         headers.set("Accept-Ranges", "bytes");
         if (status === 206) {
             headers.set("Content-Range", `bytes ${start}-${end}/${file.size}`);
         }
-        headers.set(
-            "Content-Disposition",
-            `attachment; filename*=UTF-8''${encodeURIComponent(file.name)}`,
-        );
+        if (preview) {
+            headers.set(
+                "Content-Disposition",
+                `inline; filename*=UTF-8''${encodeURIComponent(file.name)}`,
+            );
+        } else {
+            headers.set(
+                "Content-Disposition",
+                `attachment; filename*=UTF-8''${encodeURIComponent(file.name)}`,
+            );
+        }
         headers.set("X-Content-Type-Options", "nosniff");
 
         return new Response(webStream, {

@@ -1,0 +1,501 @@
+.directory-explorer {
+    width: 100%;
+    min-width: 0;
+}
+
+.directory-toolbar {
+    min-height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 10px;
+}
+
+.directory-breadcrumbs,
+.directory-breadcrumbs span,
+.directory-actions,
+.directory-controls,
+.directory-view-toggle,
+.directory-row,
+.directory-row-actions {
+    display: flex;
+    align-items: center;
+}
+
+.directory-breadcrumbs {
+    min-width: 0;
+    gap: 4px;
+}
+
+.directory-breadcrumbs span {
+    min-width: 0;
+}
+
+.directory-breadcrumbs button {
+    max-width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    border: 0;
+    background: transparent;
+    color: #8793a8;
+    padding: 4px;
+    font: inherit;
+    font-size: 11px;
+    cursor: pointer;
+}
+
+.directory-breadcrumbs button:hover {
+    color: #dce4f2;
+}
+
+.directory-actions {
+    flex: 0 0 auto;
+    gap: 7px;
+}
+
+.directory-actions button,
+.directory-preview header button {
+    min-height: 34px;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    border: 1px solid #263043;
+    border-radius: 8px;
+    background: #151c28;
+    color: #bdc6d5;
+    padding: 0 10px;
+    font: inherit;
+    font-size: 10px;
+    cursor: pointer;
+}
+
+.directory-actions .directory-primary {
+    border-color: #5874cf;
+    background: #5874cf;
+    color: white;
+}
+
+.directory-actions .directory-icon-button {
+    width: 34px;
+    justify-content: center;
+    padding: 0;
+}
+
+.directory-controls {
+    min-height: 46px;
+    gap: 8px;
+    border: 1px solid #202939;
+    border-bottom: 0;
+    border-radius: 10px 10px 0 0;
+    background: #101620;
+    padding: 7px 8px;
+}
+
+.directory-controls input {
+    width: 220px;
+    height: 32px;
+    border: 1px solid #263043;
+    border-radius: 7px;
+    background: #0b1018;
+    color: #edf1f8;
+    padding: 0 10px;
+    font: inherit;
+    font-size: 10px;
+}
+
+.directory-controls select {
+    height: 32px;
+    border: 1px solid #263043;
+    border-radius: 7px;
+    background: #0b1018;
+    color: #bdc6d5;
+    padding: 0 8px;
+    font: inherit;
+    font-size: 10px;
+}
+
+.directory-view-toggle {
+    height: 32px;
+    margin-left: auto;
+    overflow: hidden;
+    border: 1px solid #263043;
+    border-radius: 7px;
+}
+
+.directory-view-toggle button {
+    width: 32px;
+    height: 32px;
+    display: grid;
+    place-items: center;
+    border: 0;
+    border-right: 1px solid #263043;
+    background: #0b1018;
+    color: #7f8999;
+    cursor: pointer;
+}
+
+.directory-view-toggle button:last-child {
+    border-right: 0;
+}
+
+.directory-view-toggle button.active {
+    background: #1b2742;
+    color: #b9c7ff;
+}
+
+.directory-alert {
+    border: 1px solid #263043;
+    border-top: 0;
+    padding: 9px 12px;
+    font-size: 10px;
+}
+
+.directory-alert.error {
+    border-color: #5d3440;
+    background: #25151b;
+    color: #ef98a3;
+}
+
+.directory-alert.success {
+    border-color: #24483b;
+    background: #12251d;
+    color: #76cfa7;
+}
+
+.directory-empty {
+    min-height: 300px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    border: 1px solid #202939;
+    border-radius: 0 0 10px 10px;
+    background: #101620;
+    color: #8792a3;
+    font-size: 11px;
+}
+
+.directory-empty strong {
+    color: #dce4f2;
+    font-size: 12px;
+}
+
+.directory-table {
+    border: 1px solid #202939;
+    border-radius: 0 0 10px 10px;
+    background: #101620;
+    overflow-x: auto;
+}
+
+.directory-table-head,
+.directory-row {
+    min-width: 720px;
+    display: grid;
+    grid-template-columns: minmax(260px, 2fr) 110px 110px 140px 118px;
+    align-items: center;
+}
+
+.directory-table-head {
+    min-height: 38px;
+    border-bottom: 1px solid #202939;
+    color: #758196;
+    padding: 0 12px;
+    font-size: 9px;
+}
+
+.directory-row {
+    min-height: 52px;
+    border-bottom: 1px solid #1b2330;
+    padding: 0 12px;
+    color: #969faf;
+    font-size: 10px;
+}
+
+.directory-row:last-child {
+    border-bottom: 0;
+}
+
+.directory-row:hover {
+    background: #121925;
+}
+
+.directory-name {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    border: 0;
+    background: transparent;
+    color: #dce4f2;
+    padding: 0;
+    font: inherit;
+    font-size: 11px;
+    text-align: left;
+    cursor: pointer;
+}
+
+.directory-name span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.directory-name svg {
+    flex: 0 0 auto;
+    color: #889ae0;
+}
+
+.directory-row-actions {
+    justify-content: flex-end;
+    gap: 4px;
+}
+
+.directory-row-actions button,
+.directory-card-download {
+    width: 28px;
+    height: 28px;
+    display: grid;
+    place-items: center;
+    border: 1px solid transparent;
+    border-radius: 7px;
+    background: transparent;
+    color: #8792a3;
+    cursor: pointer;
+}
+
+.directory-row-actions button:hover,
+.directory-card-download:hover {
+    border-color: #263043;
+    background: #171e2a;
+    color: #dce4f2;
+}
+
+.directory-row-actions button.active {
+    color: #aabaff;
+}
+
+.directory-grid {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 8px;
+    border: 1px solid #202939;
+    border-radius: 0 0 10px 10px;
+    background: #101620;
+    padding: 10px;
+}
+
+.directory-card {
+    min-width: 0;
+    position: relative;
+    min-height: 118px;
+    border: 1px solid #202939;
+    border-radius: 9px;
+    background: #121925;
+}
+
+.directory-card-open {
+    width: 100%;
+    min-height: 118px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    border: 0;
+    background: transparent;
+    color: #dce4f2;
+    padding: 12px;
+    text-align: left;
+    cursor: pointer;
+}
+
+.directory-card-icon {
+    width: 38px;
+    height: 38px;
+    display: grid;
+    place-items: center;
+    border-radius: 8px;
+    background: #19243b;
+    color: #aabaff;
+}
+
+.directory-card strong,
+.directory-card small {
+    max-width: calc(100% - 38px);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.directory-card strong {
+    font-size: 10px;
+}
+
+.directory-card small {
+    color: #7f8999;
+    font-size: 9px;
+}
+
+.directory-card-download {
+    position: absolute;
+    right: 7px;
+    bottom: 7px;
+}
+
+.directory-preview-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 80;
+    display: grid;
+    place-items: center;
+    background: rgb(4 7 12 / 78%);
+    backdrop-filter: blur(8px);
+    padding: 24px;
+}
+
+.directory-preview {
+    width: min(1100px, calc(100vw - 48px));
+    height: min(760px, calc(100vh - 48px));
+    display: grid;
+    grid-template-rows: 58px minmax(0, 1fr);
+    overflow: hidden;
+    border: 1px solid #263043;
+    border-radius: 12px;
+    background: #0d121b;
+    box-shadow: 0 24px 80px rgb(0 0 0 / 45%);
+}
+
+.directory-preview header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid #202939;
+    padding: 9px 10px 9px 14px;
+}
+
+.directory-preview header strong,
+.directory-preview header span {
+    display: block;
+}
+
+.directory-preview header strong {
+    max-width: 60vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 11px;
+}
+
+.directory-preview header span {
+    margin-top: 3px;
+    color: #7f8999;
+    font-size: 9px;
+}
+
+.directory-preview header > div:last-child {
+    display: flex;
+    gap: 6px;
+}
+
+.directory-preview header .directory-preview-close {
+    width: 34px;
+    justify-content: center;
+    padding: 0;
+}
+
+.directory-preview video,
+.directory-preview img,
+.directory-preview iframe,
+.directory-preview pre {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+}
+
+.directory-preview video,
+.directory-preview img {
+    object-fit: contain;
+    background: #080b11;
+}
+
+.directory-preview iframe {
+    border: 0;
+    background: white;
+}
+
+.directory-preview pre {
+    overflow: auto;
+    margin: 0;
+    background: #0b1018;
+    color: #d6dde9;
+    padding: 20px;
+    font: 11px/1.65 ui-monospace, SFMono-Regular, Consolas, monospace;
+    white-space: pre-wrap;
+}
+
+.directory-audio-preview {
+    display: grid;
+    place-items: center;
+    align-content: center;
+    gap: 16px;
+}
+
+.directory-audio-preview svg {
+    color: #aabaff;
+}
+
+.directory-audio-preview audio {
+    width: min(560px, 70vw);
+}
+
+@media (max-width: 1100px) {
+    .directory-grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 820px) {
+    .directory-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .directory-toolbar {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .directory-actions {
+        width: 100%;
+    }
+}
+
+@media (max-width: 620px) {
+    .directory-controls {
+        flex-wrap: wrap;
+    }
+
+    .directory-controls input {
+        width: 100%;
+    }
+
+    .directory-view-toggle {
+        margin-left: 0;
+    }
+
+    .directory-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .directory-preview-backdrop {
+        padding: 0;
+    }
+
+    .directory-preview {
+        width: 100vw;
+        height: 100vh;
+        border: 0;
+        border-radius: 0;
+    }
+}

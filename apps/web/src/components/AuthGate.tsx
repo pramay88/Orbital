@@ -37,7 +37,7 @@ export default function AuthGate({
                 setUser(null);
             }
         } catch {
-            setError("Unable to reach HomeHub");
+            setError("Unable to reach Orbital");
         } finally {
             setLoading(false);
         }
@@ -100,11 +100,11 @@ export default function AuthGate({
                 <section className="welcome" style={{ margin: "10vh auto", maxWidth: 520 }}>
                     <form onSubmit={submitSetup}>
                         <span className="eyebrow">INITIAL SETUP</span>
-                        <h2>Create the administrator</h2>
+                        <h2>Create the Orbital administrator</h2>
                         <input aria-label="Username" value={username} onChange={(e) => setUsername(e.target.value)} minLength={3} maxLength={32} required />
                         <input aria-label="Password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} minLength={12} maxLength={128} required />
                         {error && <p role="alert">{error}</p>}
-                        <button className="fm-button fm-primary" type="submit">Create administrator</button>
+                        <button className="orbital-primary" type="submit">Create administrator</button>
                     </form>
                 </section>
             </main>
@@ -116,12 +116,12 @@ export default function AuthGate({
             <main className="dashboard">
                 <section className="welcome" style={{ margin: "10vh auto", maxWidth: 520 }}>
                     <form onSubmit={submitLogin}>
-                        <span className="eyebrow">HOMEHUB</span>
+                        <span className="eyebrow">ORBITAL</span>
                         <h2>Sign in</h2>
                         <input aria-label="Username" value={username} onChange={(e) => setUsername(e.target.value)} maxLength={32} required />
                         <input aria-label="Password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} maxLength={128} required />
                         {error && <p role="alert">{error}</p>}
-                        <button className="fm-button fm-primary" type="submit">Sign in</button>
+                        <button className="orbital-primary" type="submit">Sign in</button>
                     </form>
                 </section>
             </main>
