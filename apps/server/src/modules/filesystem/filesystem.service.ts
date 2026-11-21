@@ -19,6 +19,10 @@ import type {
     DirectoryListing,
     FileEntry,
 } from "./filesystem.types.js";
+import {
+    getFileMetadata,
+    registerMedia,
+} from "../media/media.repository.js";
 
 // Dedicated storage directory.
 // Can be overridden using HOMEHUB_STORAGE_DIR.
@@ -38,6 +42,46 @@ export class FilesystemError extends Error {
         super(message);
         this.name = "FilesystemError";
     }
+}
+
+async function detectMimeType(
+    absolutePath: string,
+    name: string,
+): Promise<string> {
+    let hint: string | undefined;
+
+    try {
+        const handle = await open(absolutePath, "r");
+        try {
+            const buffer = Buffer.alloc(512);
+            const { bytesRead } = await handle.read(buffer, 0, buffer.length, 0);
+            const bytes = buffer.subarray(0, bytesRead);
+
+            if (
+                bytes.length >= 12 &&
+                bytes.subarray(4, 8).toString("ascii") === "ftyp"
+            ) hint = "video/mp4";
+            else if (bytes.length >= 4 &&
+                bytes.subarray(0, 4).equals(Buffer.from([0x1a, 0x45, 0xdf, 0xa3]))
+            ) hint = "video/webm";
+            else if (bytes.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) hint = "image/png";
+            else if (bytes.subarray(0, 3).equals(Buffer.from([0xff, 0xd8, 0xff]))) hint = "image/jpeg";
+            else if (bytes.subarray(0, 6).toString("ascii").match(/^GIF87a|^GIF89a/)) hint = "image/gif";
+            else if (bytes.subarray(0, 4).toString("ascii") === "%PDF") hint = "application/pdf";
+            else if (bytes.subarray(0, 4).toString("ascii") === "RIFF" &&
+                bytes.subarray(8, 12).toString("ascii") === "WAVE"
+            ) hint = "audio/wav";
+            else if (bytes.subarray(0, 3).toString("ascii").startsWith("ID3") ||
+                (bytes[0] === 0xff && (bytes[1] & 0xe0) === 0xe0)
+            ) hint = "audio/mpeg";
+        } finally {
+            await handle.close();
+        }
+    } catch {
+        // Fall back to extension metadata if the file cannot be sampled.
+    }
+
+    return getFileMetadata(name, hint).mimeType;
 }
 
 // Initialize the storage directory.
@@ -242,13 +286,52 @@ export async function listDirectory(
             absolutePath,
         ).split(path.sep).join("/");
 
-        entries.push({
+        const entry: FileEntry = {
             name: item.name,
             path: entryPath,
             type,
             size: stats.size,
             modifiedAt: stats.mtime.toISOString(),
-        });
+        };
+
+        if (type === "file") {
+            const mimeType = await detectMimeType(absolutePath, item.name);
+            const metadata = getFileMetadata(item.name, mimeType);
+            const browserCompatible =
+                (metadata.kind === "video" && ["video/mp4", "video/webm", "video/ogg"].includes(metadata.mimeType)) ||
+                metadata.kind === "audio" ||
+                metadata.kind === "image" ||
+                metadata.kind === "pdf" ||
+                metadata.kind === "text";
+
+            entry.mimeType = metadata.mimeType;
+            entry.kind = metadata.kind;
+            entry.browserCompatible = browserCompatible;
+
+            try {
+                entry.mediaId = registerMedia(
+                    entryPath,
+                    item.name,
+                    metadata.mimeType,
+                    metadata.kind,
+                    stats.size,
+                    stats.mtime.toISOString(),
+                ).id;
+            } catch (error) {
+                if (
+                    !(error instanceof Error) ||
+                    error.message !== "Database is not initialized"
+                ) {
+                    throw error;
+                }
+            }
+        } else {
+            entry.mimeType = "inode/directory";
+            entry.kind = "unsupported";
+            entry.browserCompatible = false;
+        }
+
+        entries.push(entry);
     }
 
     // Directories first, then files.

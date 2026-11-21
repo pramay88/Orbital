@@ -6,6 +6,10 @@ export interface FileEntry {
     type: FileEntryType;
     size: number;
     modifiedAt: string;
+    mediaId?: string;
+    mimeType?: string;
+    kind?: "video" | "audio" | "image" | "pdf" | "text" | "unsupported";
+    browserCompatible?: boolean;
 }
 
 export interface DirectoryListing {

@@ -8,6 +8,7 @@ import { authRoutes } from "./modules/auth/auth.routes.js";
 import { requireRole } from "./modules/auth/auth.middleware.js";
 import { closeDatabase, initializeDatabase } from "./database/db.js";
 import { purgeExpiredSessions } from "./modules/auth/session.service.js";
+import { mediaRoutes } from "./modules/media/media.routes.js";
 
 const app = new Hono();
 
@@ -38,6 +39,7 @@ app.use("/api/files/*", async (c, next) => {
 app.route("/api/system", systemRoutes);
 app.route("/api/files", filesystemRoutes);
 app.route("/api/auth", authRoutes);
+app.route("/api/media", mediaRoutes);
 
 // Root endpoint
 app.get("/", (c) => {

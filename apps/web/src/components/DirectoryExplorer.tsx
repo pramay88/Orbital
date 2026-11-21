@@ -12,7 +12,6 @@ import {
     FolderPlus,
     Pencil,
     Trash2,
-    X,
 } from "lucide-react";
 import "./DirectoryExplorer.css";
 
@@ -22,14 +21,17 @@ interface Entry {
     type: "file" | "directory";
     size: number;
     modifiedAt: string;
+    mediaId?: string;
+    mimeType?: string;
+    kind?: "video" | "audio" | "image" | "pdf" | "text" | "unsupported";
+    browserCompatible?: boolean;
 }
 
 interface Props {
     readOnly?: boolean;
     section?: "Files" | "Media Library" | "Recent" | "Favorites";
+    initialPath?: string;
 }
-
-type PreviewKind = "video" | "audio" | "image" | "pdf" | "text" | "unsupported";
 
 const mediaExtensions = [
     "mp4", "webm", "ogv", "mov", "mp3", "m4a", "wav",
@@ -64,6 +66,7 @@ function readLocalList(key: string): string[] {
 export default function DirectoryExplorer({
     readOnly = false,
     section = "Files",
+    initialPath = "",
 }: Props) {
     const [currentPath, setCurrentPath] = useState("");
     const [entries, setEntries] = useState<Entry[]>([]);
@@ -74,10 +77,6 @@ export default function DirectoryExplorer({
     const [search, setSearch] = useState("");
     const [sort, setSort] = useState("name");
     const [view, setView] = useState<"list" | "grid">("list");
-    const [preview, setPreview] = useState<Entry | null>(null);
-    const [previewKind, setPreviewKind] = useState<PreviewKind | null>(null);
-    const [textPreview, setTextPreview] = useState("");
-    const [previewError, setPreviewError] = useState("");
     const [recent, setRecent] = useState(() => readLocalList("orbital.recent"));
     const [favorites, setFavorites] = useState(() => readLocalList("orbital.favorites"));
     const uploadInput = useRef<HTMLInputElement>(null);
@@ -102,29 +101,15 @@ export default function DirectoryExplorer({
     }, []);
 
     useEffect(() => {
-        const timer = window.setTimeout(() => void loadDirectory(""), 0);
+        const timer = window.setTimeout(() => void loadDirectory(initialPath), 0);
         return () => window.clearTimeout(timer);
-    }, [loadDirectory]);
-
-    useEffect(() => {
-        if (!preview) return;
-        const handleKey = (event: KeyboardEvent) => {
-            if (event.key === "Escape") setPreview(null);
-        };
-        window.addEventListener("keydown", handleKey);
-        return () => window.removeEventListener("keydown", handleKey);
-    }, [preview]);
+    }, [loadDirectory, initialPath]);
 
     const api = async (url: string, options?: RequestInit) => {
         const response = await fetch(url, options);
         const result = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(result.error ?? "Request failed");
         return result;
-    };
-
-    const previewUrl = (entry: Entry) => {
-        const query = new URLSearchParams({ path: entry.path, preview: "1" });
-        return `/api/files/download?${query}`;
     };
 
     const openEntry = async (entry: Entry) => {
@@ -139,29 +124,18 @@ export default function DirectoryExplorer({
         ].slice(0, 30);
         setRecent(nextRecent);
         localStorage.setItem("orbital.recent", JSON.stringify(nextRecent));
+        localStorage.setItem("orbital.folder", currentPath);
 
-        const extension = entry.name.split(".").pop()?.toLowerCase() ?? "";
-        const kind: PreviewKind =
-            ["mp4", "webm", "ogv", "mov"].includes(extension) ? "video" :
-            ["mp3", "m4a", "wav", "ogg", "flac", "aac"].includes(extension) ? "audio" :
-            ["jpg", "jpeg", "png", "gif", "webp", "avif"].includes(extension) ? "image" :
-            extension === "pdf" ? "pdf" :
-            ["txt", "md", "csv", "json", "xml"].includes(extension) ? "text" :
-            "unsupported";
-
-        setPreview(entry);
-        setPreviewKind(kind);
-        setPreviewError("");
-        setTextPreview("");
-
-        if (kind === "text") {
-            try {
-                const response = await fetch(previewUrl(entry));
-                if (!response.ok) throw new Error("Preview unavailable");
-                setTextPreview((await response.text()).slice(0, 250000));
-            } catch (caught) {
-                setPreviewError(caught instanceof Error ? caught.message : "Preview unavailable");
-            }
+        const kind = entry.kind ?? "unsupported";
+        if (kind === "video" && entry.browserCompatible && entry.mediaId) {
+            window.location.assign(`/watch/${entry.mediaId}`);
+        } else if (kind === "audio" && entry.browserCompatible && entry.mediaId) {
+            window.location.assign(`/audio/${entry.mediaId}`);
+        } else if (kind === "image" && entry.browserCompatible && entry.mediaId) {
+            window.location.assign(`/photos/${entry.mediaId}`);
+        } else {
+            const query = new URLSearchParams({ path: entry.path });
+            window.location.assign(`/api/files/download?${query}&open=1`);
         }
     };
 
@@ -382,34 +356,6 @@ export default function DirectoryExplorer({
                 </div>
             )}
 
-            {preview && previewKind && (
-                <div className="directory-preview-backdrop" role="dialog" aria-modal="true" onMouseDown={(event) => event.target === event.currentTarget && setPreview(null)}>
-                    <article className="directory-preview">
-                        <header>
-                            <div><strong>{preview.name}</strong><span>{formatBytes(preview.size)}</span></div>
-                            <div>
-                                <button type="button" onClick={() => download(preview)}><Download size={15} /> Download</button>
-                                <button type="button" className="directory-preview-close" onClick={() => setPreview(null)} aria-label="Close"><X size={16} /></button>
-                            </div>
-                        </header>
-                        {previewError ? (
-                            <div className="directory-empty">{previewError}</div>
-                        ) : previewKind === "video" ? (
-                            <video src={previewUrl(preview)} controls autoPlay playsInline />
-                        ) : previewKind === "audio" ? (
-                            <div className="directory-audio-preview"><File size={34} /><strong>{preview.name}</strong><audio src={previewUrl(preview)} controls autoPlay /></div>
-                        ) : previewKind === "image" ? (
-                            <img src={previewUrl(preview)} alt={preview.name} />
-                        ) : previewKind === "pdf" ? (
-                            <iframe src={previewUrl(preview)} title={preview.name} />
-                        ) : previewKind === "text" ? (
-                            <pre>{textPreview || "Loading preview..."}</pre>
-                        ) : (
-                            <div className="directory-empty"><strong>Preview unavailable</strong><span>Use Download to open this file locally.</span></div>
-                        )}
-                    </article>
-                </div>
-            )}
         </section>
     );
 }

@@ -254,6 +254,7 @@ export default function ClientApp() {
                     <DirectoryExplorer
                         readOnly={!user}
                         section={activeSection}
+                        initialPath={localStorage.getItem("orbital.folder") ?? ""}
                     />
                 )}
             </section>

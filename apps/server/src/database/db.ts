@@ -46,7 +46,107 @@ export function initializeDatabase(): void {
 
         CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
         CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at);
+
+        CREATE TABLE IF NOT EXISTS media_items (
+            id TEXT PRIMARY KEY,
+            relative_path TEXT NOT NULL UNIQUE,
+            name TEXT NOT NULL,
+            mime_type TEXT NOT NULL,
+            kind TEXT NOT NULL,
+            size INTEGER NOT NULL,
+            modified_at TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_media_items_kind ON media_items(kind);
     `);
+
+    const mediaColumns = database.pragma("table_info(media_items)") as Array<{ name: string }>;
+    if (!mediaColumns.some((column) => column.name === "mime_type")) {
+        database.exec(`
+            ALTER TABLE media_items
+            ADD COLUMN mime_type TEXT NOT NULL
+            DEFAULT 'application/octet-stream';
+        `);
+        console.log("[database] Migrated media_items.mime_type");
+    }
+
+    const mediaTable = database.prepare(`
+        SELECT sql
+        FROM sqlite_master
+        WHERE type = 'table' AND name = 'media_items'
+        LIMIT 1
+    `).get() as { sql: string } | undefined;
+
+    if (
+        mediaTable &&
+        !mediaTable.sql.includes("'pdf'")
+    ) {
+        database.transaction(() => {
+            database?.exec(`
+                CREATE TABLE media_items_new (
+                    id TEXT PRIMARY KEY,
+                    relative_path TEXT NOT NULL UNIQUE,
+                    name TEXT NOT NULL,
+                    mime_type TEXT NOT NULL,
+                    kind TEXT NOT NULL CHECK (
+                        kind IN (
+                            'video',
+                            'audio',
+                            'image',
+                            'pdf',
+                            'text',
+                            'unsupported'
+                        )
+                    ),
+                    size INTEGER NOT NULL,
+                    modified_at TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
+
+                INSERT INTO media_items_new (
+                    id,
+                    relative_path,
+                    name,
+                    mime_type,
+                    kind,
+                    size,
+                    modified_at,
+                    created_at,
+                    updated_at
+                )
+                SELECT
+                    id,
+                    relative_path,
+                    name,
+                    COALESCE(mime_type, 'application/octet-stream'),
+                    CASE
+                        WHEN kind IN (
+                            'video',
+                            'audio',
+                            'image',
+                            'pdf',
+                            'text',
+                            'unsupported'
+                        ) THEN kind
+                        ELSE 'unsupported'
+                    END,
+                    size,
+                    modified_at,
+                    created_at,
+                    updated_at
+                FROM media_items;
+
+                DROP TABLE media_items;
+                ALTER TABLE media_items_new RENAME TO media_items;
+                CREATE INDEX IF NOT EXISTS idx_media_items_kind
+                    ON media_items(kind);
+            `);
+        })();
+        console.log("[database] Migrated media_items.kind");
+    }
 
     console.log(`[database] SQLite initialized: ${databasePath}`);
 }

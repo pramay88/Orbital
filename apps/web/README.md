@@ -73,3 +73,32 @@ export default defineConfig([
 ])
 
 ```
+# Orbital media format support
+
+Orbital uses server-provided MIME metadata and a small file-signature check.
+Playback compatibility is also verified in the browser before Video.js or native
+media elements are used.
+
+## Supported previews
+
+- Images: JPEG, PNG, GIF, WebP and AVIF in browsers that support the format.
+- PDF: Browser PDF viewer.
+- Text: TXT, Markdown, CSV, JSON and XML; rendered as text only.
+- Audio: MP3, M4A, WAV, OGG, FLAC and AAC where supported by the browser.
+- Video: MP4 and WebM containers are candidates for Video.js playback.
+  OGV is only enabled when the browser reports support.
+
+## Format limitations
+
+- MKV and AVI are not assumed playable. Their codecs vary and require a
+  compatible browser codec or future transcoding.
+- MOV is not enabled as a browser-compatible format.
+- MP4 codec support depends on the browser and operating system. Video.js
+  additionally checks browser capability for the common AVC/H.264 + AAC codec
+  combination.
+- FLAC, AAC and some OGG codecs are browser-dependent.
+- Unsupported files offer Download. Future transcoding must use the media route
+  and must not replace direct Range streaming.
+
+HTTP Range requests are required for seeking and efficient playback. Orbital
+does not load complete media files into memory.

@@ -251,6 +251,7 @@ filesystemRoutes.get("/download", async (c) => {
         const headers = new Headers();
 
         const preview = c.req.query("preview") === "1";
+        const openInBrowser = c.req.query("open") === "1";
         const extension = file.name.split(".").pop()?.toLowerCase();
         const contentTypes: Record<string, string> = {
             mp4: "video/mp4",
@@ -284,7 +285,7 @@ filesystemRoutes.get("/download", async (c) => {
         if (status === 206) {
             headers.set("Content-Range", `bytes ${start}-${end}/${file.size}`);
         }
-        if (preview) {
+        if (preview || openInBrowser) {
             headers.set(
                 "Content-Disposition",
                 `inline; filename*=UTF-8''${encodeURIComponent(file.name)}`,
