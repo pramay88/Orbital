@@ -11,12 +11,15 @@
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^9.6.0",
     "@types/node": "^26.6.6",
     "tsx": "^4.23.15",
     "vitest": "^5.1.0"
   },
   "dependencies": {
     "@hono/node-server": "^2.1.6",
+    "@node-rs/argon2": "^2.2.2",
+    "better-sqlite3": "^13.2.0",
     "hono": "^4.13.17",
     "systeminformation": "^5.33.19",
     "zod": "^4.6.7"

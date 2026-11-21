@@ -64,7 +64,7 @@ function formatDate(value: string): string {
     return date.toLocaleString();
 }
 
-export default function FileManager() {
+export default function FileManager({ readOnly = false }: { readOnly?: boolean }) {
     const [currentPath, setCurrentPath] = useState("");
     const [entries, setEntries] = useState<FileEntry[]>([]);
     const [loading, setLoading] = useState(true);
@@ -100,7 +100,11 @@ export default function FileManager() {
     }, []);
 
     useEffect(() => {
-        void loadDirectory("");
+        const timer = window.setTimeout(() => {
+            void loadDirectory("");
+        }, 0);
+
+        return () => window.clearTimeout(timer);
     }, [loadDirectory]);
 
     const navigateTo = (directory: string) => {
@@ -285,28 +289,32 @@ export default function FileManager() {
 
             <div className="fm-toolbar">
                 <div className="fm-toolbar-actions">
-                    <button
-                        className="fm-button fm-primary"
-                        onClick={() => fileInputRef.current?.click()}
-                        disabled={uploading}
-                    >
-                        {uploading ? "Uploading..." : "↑ Upload"}
-                    </button>
+                    {!readOnly && (
+                        <>
+                            <button
+                                className="fm-button fm-primary"
+                                onClick={() => fileInputRef.current?.click()}
+                                disabled={uploading}
+                            >
+                                {uploading ? "Uploading..." : "↑ Upload"}
+                            </button>
 
-                    <button
-                        className="fm-button"
-                        onClick={handleCreateFolder}
-                    >
-                        + New folder
-                    </button>
+                            <button
+                                className="fm-button"
+                                onClick={handleCreateFolder}
+                            >
+                                + New folder
+                            </button>
 
-                    <input
-                        ref={fileInputRef}
-                        type="file"
-                        multiple
-                        hidden
-                        onChange={handleUpload}
-                    />
+                            <input
+                                ref={fileInputRef}
+                                type="file"
+                                multiple
+                                hidden
+                                onChange={handleUpload}
+                            />
+                        </>
+                    )}
                 </div>
 
                 <span className="fm-entry-count">
@@ -419,36 +427,49 @@ export default function FileManager() {
                                     </td>
 
                                     <td>{formatDate(entry.modifiedAt)}</td>
+                                    {!readOnly ? (
+                                        <td>
+                                            <div className="fm-row-actions">
+                                                {entry.type === "file" && (
+                                                    <button
+                                                        className="fm-icon-button"
+                                                        title="Download"
+                                                        onClick={() => void handleDownload(entry)}
+                                                    >
+                                                        ↓
+                                                    </button>
+                                                )}
 
-                                    <td>
-                                        <div className="fm-row-actions">
-                                            {entry.type === "file" && (
                                                 <button
                                                     className="fm-icon-button"
-                                                    title="Download"
-                                                    onClick={() => void handleDownload(entry)}
+                                                    title="Rename"
+                                                    onClick={() => void handleRename(entry)}
                                                 >
-                                                    ↓
+                                                    ✎
                                                 </button>
-                                            )}
 
+                                                <button
+                                                    className="fm-icon-button fm-danger"
+                                                    title="Delete"
+                                                    onClick={() => void handleDelete(entry)}
+                                                >
+                                                    ×
+                                                </button>
+                                            </div>
+                                        </td>
+                                    ) : entry.type === "file" ? (
+                                        <td>
                                             <button
                                                 className="fm-icon-button"
-                                                title="Rename"
-                                                onClick={() => void handleRename(entry)}
+                                                title="Download"
+                                                onClick={() => void handleDownload(entry)}
                                             >
-                                                ✎
+                                                ↓
                                             </button>
-
-                                            <button
-                                                className="fm-icon-button fm-danger"
-                                                title="Delete"
-                                                onClick={() => void handleDelete(entry)}
-                                            >
-                                                ×
-                                            </button>
-                                        </div>
-                                    </td>
+                                        </td>
+                                    ) : (
+                                        <td />
+                                    )}
                                 </tr>
                             ))
                         )}

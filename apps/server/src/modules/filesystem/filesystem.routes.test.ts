@@ -199,6 +199,22 @@ describe("Filesystem API", () => {
         expect(content).toBe("Hello HomeHub");
     });
 
+    it("should support HTTP byte ranges", async () => {
+        const response = await app.request(
+            "/api/files/download?path=Documents%2Fwelcome.txt",
+            {
+                headers: {
+                    Range: "bytes=0-4",
+                },
+            },
+        );
+
+        expect(response.status).toBe(206);
+        expect(response.headers.get("Accept-Ranges")).toBe("bytes");
+        expect(response.headers.get("Content-Range")).toBe("bytes 0-4/13");
+        expect(await response.text()).toBe("Hello");
+    });
+
     it("should reject duplicate uploads", async () => {
         const form = new FormData();
 
