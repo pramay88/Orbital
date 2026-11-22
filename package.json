@@ -1,5 +1,5 @@
 {
-    "name": "homehub",
+    "name": "orbital",
     "version": "0.1.0",
     "private": true,
     "description": "Self-hosted personal infrastructure platform",
@@ -9,16 +9,13 @@
     ],
     "scripts": {
         "dev": "concurrently -k -n server,web -c blue,green \"npm run dev -w @homehub/server\" \"npm run dev -w @homehub/web\"",
-        
         "build": "npm run build --workspaces --if-present",
         "test": "npm run test --workspaces --if-present",
         "typecheck": "npm run typecheck --workspaces --if-present",
-        
         "start:cluster": "npm run build && pm2 start apps/server/dist/index.js --name orbital-api -i 2",
         "restart:cluster": "pm2 restart orbital-api",
         "stop:cluster": "pm2 stop orbital-api",
         "delete:cluster": "pm2 delete orbital-api",
-
         "autoscale": "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/autoscale.ps1"
     },
     "devDependencies": {
