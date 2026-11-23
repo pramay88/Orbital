@@ -44,7 +44,7 @@ app.route("/api/media", mediaRoutes);
 // Root endpoint
 app.get("/", (c) => {
     return c.json({
-        name: "HomeHub",
+        name: "Orbital",
         description: "Self-hosted personal infrastructure",
         version: "0.1.0",
         status: "running",
@@ -55,7 +55,7 @@ app.get("/", (c) => {
 app.get("/api/health", (c) => {
     return c.json({
         status: "healthy",
-        service: "homehub-server",
+        service: "orbital-server",
         timestamp: new Date().toISOString(),
         uptime: Math.floor(process.uptime()),
     });

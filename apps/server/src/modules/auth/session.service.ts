@@ -3,7 +3,7 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { getDatabase } from "../../database/db.js";
 import { findUserById, type AuthUser } from "./user.repository.js";
 
-export const SESSION_COOKIE = "homehub_session";
+export const SESSION_COOKIE = "orbital_session";
 export const SESSION_TTL_MS = 12 * 60 * 60 * 1000;
 
 function hashToken(token: string): string {
