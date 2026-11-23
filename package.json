@@ -8,7 +8,7 @@
         "packages/*"
     ],
     "scripts": {
-        "dev": "concurrently -k -n server,web -c blue,green \"npm run dev -w @homehub/server\" \"npm run dev -w @homehub/web\"",
+        "dev": "concurrently -k -n server,web -c blue,green \"npm run dev -w @orbital/server\" \"npm run dev -w @orbital/web\"",
         "build": "npm run build --workspaces --if-present",
         "test": "npm run test --workspaces --if-present",
         "typecheck": "npm run typecheck --workspaces --if-present",
